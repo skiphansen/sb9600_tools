@@ -4,19 +4,20 @@ https://github.com/skiphansen/sb9600_tools
 
 ## What is this?
 
-Some tools to assist in understanding the SB9600 protocol used by many 
+Tools to assist in understanding the SB9600 protocol used by many 
 Motorola radios.
 
+## Background
 Due to changing licensing requirements there are a ton of surplus Motorola 
 radios which are no longer legal for use in the land mobile radios service 
-(commercial "two way" radio). However these radios may still be used on Ham 
-radio bands.
+(commercial "two way" radio). 
 
-Radios built specifically for Hams are almost always frequency agile while
-"two way" radios are not.  A number of hams have been reverse engineering
-Motorola radios to allow them to be used on Ham bands for many years.
+**However** these radios may still be used on Ham radio bands.  A large 
+number of hams have been reverse engineering surplus Motorola radios to 
+allow them to be used on Ham bands for many years.
 
-Understanding the SB9600 protocol is key to remotely controlling these radios.
+Understanding the SB9600 protocol is key to understanding how these
+radios are programmed and how they might be remotely controlled.
 
 ## SB9600 sniffer
 
@@ -34,10 +35,10 @@ optional arguments:
 skip@Dell-7040:~/SB9600/sb9600_tools$
 ```
 
-Here's an example of monitoring the SB9600 bus of a Spectra while it is turned
+Here's an example of monitoring the SB9600 bus of a Spectra when it is turned
 on:
 
-````
+```
 skip@Dell-7040:~/SB9600/sb9600_tools$ ./sniff_sb9600.py -p /dev/ttyS0
 00 00 05 3B 0D: PRUPST
 00 00 01 3B 36: PRUPST
@@ -76,19 +77,18 @@ KeyboardInterrupt
 The decode_sb9600.py script can be used to decode SB9600 data from a raw
 capture file.
 
-
 ## sb9600 common
 
 These scripts use Paul Bank's sb9600.py route for CRC validation.
 
 ## SB9600 links
 
-- [hamvoip article: Programming Motorola Radios with a Raspberry Pi](href="https://hamvoip.org/hamradio/motorola_programming)
 - [Paul Banks article and code: Remote controlling GM1200 radio](https://paulbanks.org/projects/sb9600)
 - [W3AXL: XTL5000 remote control via web](https://github.com/W3AXL/python-radio-console/wiki/Setup)
 - [W3AXL: experiments with SB9600 on the XTL series](https://github.com/W3AXL/XTL-SB9600-Playground)
 - [KK6JYT: Motorola Radius Programming in Windows with RSS and DOSBox](https://kk6jyt.com/motorola-radius-gm300-programming)
 - [Sandy Ganz: Code to Generate SB9600 CRC](https://github.com/sganz/SB9600-CRC-Gen)
+- [hamvoip article: Programming Motorola Radios with a Raspberry Pi](https://hamvoip.org/hamradio/motorola_programming)
 - [SB9600 patent US5551068A (expired 8/27/2013)](https://patents.google.com/patent/US5551068A/en)
 - [SB9600 patent US4637022A (expired 12/21/2004)](https://patents.google.com/patent/US4637022A/en)
 
