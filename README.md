@@ -79,7 +79,7 @@ capture file.
 
 ## sb9600 common
 
-These scripts use Paul Bank's sb9600.py route for CRC validation.
+These scripts use Paul Bank's sb9600.py routine for CRC validation.  Thanks Paul!
 
 ## SB9600 links
 
