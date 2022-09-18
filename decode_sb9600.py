@@ -201,7 +201,7 @@ buttons = {
 }
 
 addresses = {
-0x00:"BroadcastSYSTEM",
+0x00:"Broadcast",
 0x01:"RADIO",
 0x02:"DSP",
 0x03:"MPL",
@@ -240,7 +240,10 @@ addresses = {
 def decode_adr(data):
     group = (data >> 5) & 0x7
     device = data & 0x1f
-    print(format(group,"#x") + ":" + format(device,'#x'),end="")
+    if device > 0x1B:
+        print(f'{group}:{device}',end="")
+    else:
+        print(f'{group}:{addresses.get(device)}',end="")
 
 def decode_MEMACS(packet):
     global rss_packet, memacs_3_byte_mode
@@ -327,6 +330,30 @@ def decode_DISPLY(packet):
         print(f' "{char}"',end='')
     else:
         print(f' 0x{packet[2]:02x},',end='')
+
+def decode_PRUPST(packet):
+    decode_adr(packet[2])
+    if packet[1] == 0:
+        print(' passed',end='')
+    else:
+        print(f' failed (0x{packet[1]:2x}):',end='')
+        if packet[1] & 0x1:
+            print(' ROM Fail',end='')
+        if packet[1] & 0x2:
+            print(' EEPROM Fail',end='')
+        if packet[1] & 0x4:
+            print(' EEPROM blank',end='')
+        if packet[1] & 0x8:
+            print(' RAM fail',end='')
+        if packet[1] & 0x10:
+            print(' hardware fail',end='')
+        if packet[1] & 0x20:
+            print(' serial bus error',end='')
+        if packet[1] & 0x40:
+            print(' keypad locked',end='')
+        if packet[1] & 0x80:
+            print(' fatal error',end='')
+
 
 #0x0109: 0 NP LED off, PRI LED off
 #0x0109: 1 NP LED on, PRI LED off
@@ -451,6 +478,26 @@ def decode_TXAUD(packet):
     else:
         print(', undefined data5 value 0x{data5:02x}',end='')
 
+def decode_SQLDET(packet):
+    if packet[2] & 0x1:
+        carrier = ''
+    else:
+        carrier = 'no '
+
+    print(f' {carrier}carrier detected, ',end='')
+    if packet[2] & 0x2:
+        muted = 'un'
+    else:
+        muted = ''
+    print(f'audio {muted}muted',end='')
+
+def decode_AUDMUT(packet):
+    if packet[2] & 0x1:
+        muted = 'un'
+    else:
+        muted = ''
+    print(f' audio {muted}mute',end='')
+
 opcodes = {
     0x01:("CHINFO", "Channel information (obsolete)"),
     0x03:("MEMFRA", "Memory addr./data framed (obsolete)"),
@@ -475,8 +522,8 @@ opcodes = {
     0x1A:("RXAUD", "Receive audio routing"),
     0x1B:("TXAUD", "Transmit audio routing",decode_TXAUD),
     0x1C:("ALRTTN", "Alert tone"),
-    0x1D:("AUDMUT", "Audio mute"),
-    0x1E:("SQLDET", "Squelch detect"),
+    0x1D:("AUDMUT", "Audio mute",decode_AUDMUT),
+    0x1E:("SQLDET", "Squelch detect",decode_SQLDET),
     0x1F:("ACTMDU", "Active mode update",decode_ACTMDU),
     0x20:("TXMODE", "Transmit mode update"),
     0x21:("RXMODE", "Receive mode update"),
@@ -505,7 +552,7 @@ opcodes = {
     0x38:("ACNPLB", "Active np list blanking"),
     0x39:("ACPRI1", "Active priority 1 mode"),
     0x3A:("ACPRI2", "Active priority 2 mode"),
-    0x3B:("PRUPST", "Power up status"),
+    0x3B:("PRUPST", "Power up status",decode_PRUPST),
     0x3C:("DISPLY", "Display",decode_DISPLY),
     0x3D:("DSPMSG", "Display message"),
     0x3E:("BATTST", "Battery status"),
@@ -541,260 +588,261 @@ opcodes = {
 }
 
 """"
-0x0000: decode_OnOff radio power relay off,on
-0x0005: decode_OnOff horn transfer relay off,on OR Metrocom emer switch test off,on
-0x0006: decode_OnOff horn relay off,on OR Metrocom driver speaker off,on
-0x0007: decode_OnOff light relay off, on OR Metrocom PA speaker relay off,on
-0x0009: decode_OnOff speaker MUTE LED off,on
-0x000A: decode_OnOff [dual radio] LED off,on
-0x000B: decode_OnOff PAC-RT F1/F2 (emergency steering)
-0x0010: decode_OnOff Metrocom host defined output 1 (off,on)
-0x0011: decode_OnOff Metrocom host defined output 2 (off,on)
-0x0012: decode_OnOff Metrocom host defined output 3 (off,on)
-0x0013: decode_OnOff Metrocom host defined output 4 (off,on)
-0x0014: decode_OnOff Covert monitor mic relay & LED off,on
-0x0017: decode_OnOff GE-STAR (PTT ID) enabled, disabled
-0x0021: 1 [radio one] LED on
-0x0041: 1 [radio two] LED on
-0x0061: 1 [radio three] LED on
-0x0101: decode_numeric ** ' MODE XXX' active mode
-0x0102: decode_numeric 'VOLUME XXX'
-0x0103: decode_numeric 'SQUELCH XXX'
-0x0104: decode_OnOff RPT/DIR LED off,on
-0x0105: 0 'MONITOR OFF'
-0x0105: 1 'MONITOR ON '
-0x0108: decode_OnOff Home LED off, on
-0x0109: decode_np_pri_led 4 NP LED off, PRI LED blink
-0x010A: decode_OnOff BUSY LED off,on
-0x010B: decode_OnOff TX LED off,on
-0x010C: decode_numeric ** MODE XXX SCAN mode
-0x010D: decode_hrn_lts
-0x010E: decode_OnOff H/L LED off/on
-0x010F: decode_hrn_lts
-0x0111: decode_numeric DEV XXX
-0x0112: decode_numeric COMP XXX
-0x0113: decode_numeric POWER XXX
-0x0114: decode_numeric CURNT XXX
-0x0115: decode_numeric REFOSC XXX
-0x0116: decode_numeric FAIL XXX
-0x0117: --- FAIL 999
-0x0118: decode_numeric RSSI XXX
-0x0125: decode_OnOff MONitor LED off, on
-#0x0171:-79 0,1 DEK VIP Out (Up to 3 DEKs with 3 VIPs each)
-0x0171: decode_dek_vip_out
-0x0172: decode_dek_vip_out
-0x0173: decode_dek_vip_out
-0x0174: decode_dek_vip_out
-0x0175: decode_dek_vip_out
-0x0176: decode_dek_vip_out
-0x0177: decode_dek_vip_out
-0x0178: decode_dek_vip_out
-0x0179: decode_dek_vip_out
-0x0200: decode_OnOff SCAN LED off,on
-0x0201: decode_numeric ** MODE XXX SCAN CONFIGURATION
-0x0203: decode_OnOff talk back scan LED off,on
-0x0204: 1 'BLANK LIST '
-0x0204: 2 ' LIST FULL '
-0x0205: decode_np_pri_led
-0x0300: decode_OnOff MPL LED off,on
-0x0301: decode_numeric ** MPL XXX
-0x0400: decode_OnOff SS LED off,on
-0x0401: decode_401
-0x0402: decode_402
-0x0403: decode_403
-0x0406: decode_406
-0x0407: decode_407
-0x0408: decode_408
-0x0409: decode_409
-0x040A: --- Reserved for Clock, [Time] LED
-0x040B: decode_OnOff emergency Ack LED off,on
-0x0501: decode_OnOff F/R rear speaker relay off,on
-0x0503: --- Rsrvd for control head dim/backlight set.
-0x0502: --- ** F/R ' REMOTE ' message
-0x0601: decode_OnOff F/R front speaker relay off,on
-0x0800: decode_OnOff SIREN LED off,on
-0x0801: 0 ' WAIL '
-0x0801: 1 ' YELP '
-0x0801: 2 ' HILO '
-0x0801: 3 ' MANUAL '
-0x0801: 4 ' EXT RADIO '
-0x0801: 5 ' AIR HORN '
-0x0802: decode_OnOff PA LED off,on
-0x0803: decode_numeric PA VOL XXX
-0x0804: 0 WAIL DEK LED
-0x0804: 1 YELP DEK LED
-0x0804: 2 HILO DEK LED
-0x0804: 3 MANUAL DEK LED
-0x0804: 4 EXT RAD DEK LED
-0x0805: --- 'SPKR SHORT ' (SYS 9000 Siren Option)
-0x0805: decode_OnOff PA speaker off, on (Metrocom Only)
-0x0900: decode_OnOff SNET LED off,on
-0x0901: decode_numeric ** CODE XXX
-0x0902: 0 don't blink BUSY LED if on
-0x0902: 1 blink BUSY LED if on
-0x0903: 0 don't blink TX LED if on
-0x0903: 1 blink TX LED if on
-0x0904: --- 'KEY ERASED'
-0x0905: --- reserved for key loader
-0x0A01: decode_numeric ** STATUS XXX (600 & 1200)
-0x0A02: 1-8 DEK LEDs (turning one on turns rest off)
-0x0A03: --- NO ACK
-0x0A11: 1 'STATUS RCVD'
-0x0A11: 2 ## 'STS NO ACK '
-0x0A11: 3 'PLEASE WAIT'
-0x0A11: 4 ' NO STATUS '
-0x0A12: 1-8 DEK status LEDs blink on/off
-0x0A13: 0 emergency LED off
-0x0A13: 1 emergency LED on
-0x0A13: 2 emergency LED blink
-0x0A14: 0 # stop emergency blink
-0x0A14: 1 # ' EMERGENCY '(blinks)
-0x0A14: 2 # ' NO EMERG '
-0x0A15: 1 'DYN REG ERR'
-0x0A15: 2 'DYN REG ON '
-0x0A15: 3 'DYN REG OFF'
-0x0A15: 4 'RQAT NO ACK'
-0x0A15: 5 'REQUEST ACK'
-0x0A15: 6 'PLEASE WAIT'
-0x0A15: 7 'NO DYN REG '
-0x0A15: 8 ' PRGM RQST '
-0x0A16: 1-9 ' RPTR '
-0x0B01: decode_numeric ** 'MESSAGE XXX'
-0x0B02: 1-8 DEK LEDs
-0x0B11: 1 'MESAGE RCVD'
-0x0B11: 2 ## 'MSG NO ACK '
-0x0B11: 3 'PLEASE WAIT'
-0x0B11: 4 'NO MESSAGE '
-0x0B12: 1-8 DEK message LEDs blink on/off
-0x0B13: 1 ## ' PAGE '
-0x0B13: 2 ' ID PAGED '
-0x0B13: 3 'PAGE NO ACK'
-0x0B13: 4 ' STORE ID '
-0x0B13: 5 'PLEASE WAIT'
-0x0B13: 6 'THIS UNIT '
-0x0B13: 7 'BAD ID '
-0x0B14: 1 ## ' CALL '
-0x0B14: 2 'ID - RCVD '
-0x0B14: 3 'ID - SPRVSR'
-0x0B14: 4 ' ID CALLED '
-0x0B14: 5 'CALL NO ACK'
-0x0B14: 6 'SCRATCH PAD'
-0x0B14: 7 ' STORE ID '
-0x0B14: 8 'PLEASE WAIT'
-0x0B14: 9 'THIS UNIT '
-0x0B14: A ' UNIT BUSY '
-0x0B14: B ' NO ANSWER '
-0x0B14: C ' BAD ID '
-0x0B14: D 'FLEET-WIDE '
-0x0B14: E 'GROUP-WIDE '
-0x0B14: F ' CANCELLED '
-0x0B15: 1-9 # UNIT XXX
-0x0B16: 1 'FLEET WIDE '
-0x0B16: 2 'GROUP WIDE '
-0x0B17: 1 call alert LED blinks
-0x0B17: 2 private call LED blinks
-0x0C01: 0 ' BASE '
-0x0C01: 1 ' FLEET '
-0x0C01: 2 ' GROUP '
-0x0C01: 3 ' UNIT '
-0x0C02: decode_numeric ** unit names with data
-0x0C03: 0 'HRN/LTS OFF' (keypad)
-0x0C03: 1 ' HORN ON ' (keypad)
-0x0C03: 2 'LIGHTS ON ' (keypad)
-0x0C03: 3 'HRN/LTS ON ' (keypad)
-0x0C04: 0 ' CALL BASE ' off
-0x0C04: 1 ' CALL BASE ' on
-0x0C05: 0 H/L LED off (indicator)
-0x0C05: 1 H/L LED on (indicator)
-0x0C06: 0 HRN/LTS off (indicator)
-0x0C06: 1 HORN ON (indicator)
-0x0C06: 2 LIGHTS ON (indicator)
-0x0C06: 3 HRN/LTS ON (indicator)
-0x0C07: --- unit to unit page
-0x0C08: decode_numeric ** unit names with data
-0x0C09: decode_OnOff PVT LED off,on
-0x0C0A: --- PVT
-0x0C0B: decode_numeric repeater names with data
-0x0C0C: decode_OnOff rptr led off,on
-0x0D01: 0 ' PLAY '
-0x0D01: 1 ' REPLAY '
-0x0D01: 2 ' RECORD '
-0x0D01: 3 ' SEND '
-0x0D01: 4 ' OFF '
-0x0D02: --- ' VOICE MSG '
-0x0E01: --- 'SCRATCHPAD '
-0x0E02: 1-9 ** 'PHONE XXX '
-0x0E03: --- 'PHONE CALL '
-0x0E04: --- 'STORE PHONE'
-0x0F01: --- 'SCRATCH PAD'
-0x0F02: 1-9 ** UNIT XXX X
-0x0F03: --- ' CALL '
-0x0F04: 1 'STORE CALL '
-0x10(1:6) 02 1 ' FAILSOFT '
-0x1002: 2 'OUT OF RNGE'
-0x1003: decode_OnOff Emer led off,on
-0x1004: 1 ' EMERGENCY ' (blinks)
-0x1004: 2 'NO EMERGNCY'
-0x1005: 1 'SITE LOCKED'
-0x1005: 2 'SITE UNLCKED' ?
-0x1006: decode_numeric ** 'SITE XXX '
-0x1007: 0 'STATUS - '
-0x1007: 1-8 ** 'STATUS X '
-0x1008: 1-128 ** 'MESSAGE X '
-0x1009: 1 'STATUS RCVD'
-0x1009: 2 'MESSGE RCVD'
-0x1009: 3 ' NO STATUS '
-0x1009: 4 'PLEASE WAIT'
-0x1009: 5 'STS NO ACK '
-0x1009: 6 'MSG NO ACK '
-0x100A: 1-8 DEK Status LEDs on/off
-0x100B: 1-8 DEK Message LEDs on/off
-0x100C: 1-8 DEK Status LEDs Blink on/off
-0x100D: 1-8 DEK Message LEDs Blink on/off
-0x100E: 1 'DYN REG ERR'
-0x100E: 2 'NO DYN REG '
-0x100E: 3 'DYN REG ON '
-0x100E: 4 'DYN REG OFF'
-0x100E: 5 'RQST FAILED'
-0x100E: 6 ' RQST SENT '
-0x100E: 7 ' RPGM RQST '
-0x100F: 1 ' NOT AUTH '
-0x1010: decode_OnOff SYSTEM WIDE LED off,on
-0x1011: 1-X DATA DISPLAYS
-0x11(1:7) 01 1 'PLEASE WAIT'
-0x1101: 2 'PHONE BUSY '
-0x1101: 3 'OK TO DIAL '
-0x1101: 4 'ERROR 10/02'
-0x1101: 5 'KEYPAD DIAL'
-0x1101: 6 'PHONE CALL '
-0x1101: 7 'NO SYSTEM '
-0x1101: 8 'SCRATCH PAD'
-0x1101: 9 'STORE PHONE'
-0x1102: 1-9 ** ' PHONE X '
-0x1103: 1 'ID ALERTED '
-0x1103: 2 'NO ID ACK '
-0x1103: 3 'STORE ID '
-0x1103: 4 'NO SYSTEM '
-0x1103: 5 'PLEASE WAIT'
-0x1103: 6 'THIS UNIT '
-0x1103: 7 'ILLEGAL ID '
-0x1103: 8 'ERROR 10/02'
-0x1103: 9 'ID-________'
-0x1104: 1-9 ** 'UNIT ID X '
-0x1105: 1 ' PAGE ' (blinks)
-0x1105: 2 ' CALL ' (blinks)
-0x1106: 1 ' BAD ID '
-0x1106: 2 ' STORE ID '
-0x1106: 3 ' ID - RCVD '
-0x1106: 4 'ID - SPRVSR'
-0x1106: 5 ' ID - SENT '
-0x1106: 6 ' NO ANSWER '
-0x1106: 7 ' EXIT '
-0x1106: 8 ?
-0x1106: 9 * ' CALL '
-0x14(2:0) 00 0,1 Single Tone LED off,on
-0x1401: 1-16 Single Tone Mode
-0x1402: 1-16 Single Tone DEK LED
+display_codes = {
+0x0000: (decode_OnOff,"radio power relay"),
+0x0005: (decode_OnOff,"horn transfer relay OR Metrocom emer switch test"),
+0x0006: (decode_OnOff,"horn relay OR Metrocom driver speaker"),
+0x0007: (decode_OnOff,"light relay OR Metrocom PA speaker relay"),
+0x0009: (decode_OnOff,"speaker MUTE LED"),
+0x000A: (decode_OnOff,"[dual radio] LED"),
+0x000B: (decode_OnOff,"PAC-RT F1/F2 (emergency steering)"),
+0x0010: (decode_OnOff,"Metrocom host defined output 1"),
+0x0011: (decode_OnOff,"Metrocom host defined output 2"),
+0x0012: (decode_OnOff,"Metrocom host defined output 3"),
+0x0013: (decode_OnOff,"Metrocom host defined output 4"),
+0x0014: (decode_OnOff,"Covert monitor mic relay & LED"),
+0x0017: (decode_OnOff,"GE-STAR (PTT ID)"),
+0x0021: (decode_OnOff,"[radio one] LED"),
+0x0041: (decode_OnOff,"[radio two] LED"),
+0x0061: (decode_OnOff,"[radio three] LED"),
+0x0101: (decode_numeric,"MODE"),
+0x0102: (decode_numeric,"VOLUME"),
+0x0103: (decode_numeric,"SQUELCH"),
+0x0104: (decode_OnOff,"RPT/DIR LED"),
+0x0105: (decode_OnOff,'MONITOR'),
+0x0108: (decode_OnOff,"Home LED"),
+0x0109: (decode_np_pri_led 4 NP LED off, PRI LED blink),
+0x010A: (decode_OnOff,"BUSY LED"),
+0x010B: (decode_OnOff,"TX LED"),
+0x010C: (decode_numeric ** MODE XXX SCAN mode),
+0x010D: (decode_hrn_lts),
+0x010E: (decode_OnOff,"H/L LED"),
+0x010F: (decode_hrn_lts),
+0x0111: (decode_numeric DEV XXX),
+0x0112: (decode_numeric COMP XXX),
+0x0113: (decode_numeric POWER XXX),
+0x0114: (decode_numeric CURNT XXX),
+0x0115: (decode_numeric REFOSC XXX),
+0x0116: (decode_numeric FAIL XXX),
+0x0117: (--- FAIL 999),
+0x0118: (decode_numeric RSSI XXX),
+0x0125: (decode_OnOff,"MONitor LED"),
+#0x0171: (-79 0,1 DEK VIP Out (Up to 3 DEKs with 3 VIPs each)),
+0x0171: (decode_dek_vip_out),
+0x0172: (decode_dek_vip_out),
+0x0173: (decode_dek_vip_out),
+0x0174: (decode_dek_vip_out),
+0x0175: (decode_dek_vip_out),
+0x0176: (decode_dek_vip_out),
+0x0177: (decode_dek_vip_out),
+0x0178: (decode_dek_vip_out),
+0x0179: (decode_dek_vip_out),
+0x0200: (decode_OnOff,"SCAN LED"),
+0x0201: (decode_numeric ** MODE XXX SCAN CONFIGURATION),
+0x0203: (decode_OnOff,"talk back scan LED"),
+0x0204: (1 'BLANK LIST '),
+0x0204: (2 ' LIST FULL '),
+0x0205: (decode_np_pri_led),
+0x0300: (decode_OnOff,"MPL LED"),
+0x0301: (decode_numeric ** MPL XXX),
+0x0400: (decode_OnOff,"SS LED"),
+0x0401: (decode_401),
+0x0402: (decode_402),
+0x0403: (decode_403),
+0x0406: (decode_406),
+0x0407: (decode_407),
+0x0408: (decode_408),
+0x0409: (decode_409),
+0x040A: (--- Reserved for Clock, [Time] LED),
+0x040B: (decode_OnOff,"emergency Ack LED"),
+0x0501: (decode_OnOff,"F/R rear speaker relay"),
+0x0503: (--- Rsrvd for control head dim/backlight set.),
+0x0502: (--- ** F/R ' REMOTE ' message),
+0x0601: (decode_OnOff,"F/R front speaker"),
+0x0800: (decode_OnOff,"SIREN LED"),
+0x0801: (0 ' WAIL '),
+0x0801: (1 ' YELP '),
+0x0801: (2 ' HILO '),
+0x0801: (3 ' MANUAL '),
+0x0801: (4 ' EXT RADIO '),
+0x0801: (5 ' AIR HORN '),
+0x0802: (decode_OnOff,"PA LED"),
+0x0803: (decode_numeric PA VOL XXX),
+0x0804: (0 WAIL DEK LED),
+0x0804: (1 YELP DEK LED),
+0x0804: (2 HILO DEK LED),
+0x0804: (3 MANUAL DEK LED),
+0x0804: (4 EXT RAD DEK LED),
+0x0805: (--- 'SPKR SHORT ' (SYS 9000 Siren Option)),
+0x0805: (decode_OnOff,"PA speaker (Metrocom Only)"),
+0x0900: (decode_OnOff,"SNET LED"),
+0x0901: (decode_numeric ** CODE XXX),
+0x0902: (0 don't blink BUSY LED if on),
+0x0902: (1 blink BUSY LED if on),
+0x0903: (0 don't blink TX LED if on),
+0x0903: (1 blink TX LED if on),
+0x0904: (--- 'KEY ERASED'),
+0x0905: (--- reserved for key loader),
+0x0A01: (decode_numeric ** STATUS XXX (600 & 1200)),
+0x0A02: (1-8 DEK LEDs (turning one on turns rest off)),
+0x0A03: (--- NO ACK),
+0x0A11: (1 'STATUS RCVD'),
+0x0A11: (2 ## 'STS NO ACK '),
+0x0A11: (3 'PLEASE WAIT'),
+0x0A11: (4 ' NO STATUS '),
+0x0A12: (1-8 DEK status LEDs blink on/off),
+0x0A13: (0 emergency LED off),
+0x0A13: (1 emergency LED on),
+0x0A13: (2 emergency LED blink),
+0x0A14: (0 # stop emergency blink),
+0x0A14: (1 # ' EMERGENCY '(blinks)),
+0x0A14: (2 # ' NO EMERG '),
+0x0A15: (1 'DYN REG ERR'),
+0x0A15: (2 'DYN REG ON '),
+0x0A15: (3 'DYN REG OFF'),
+0x0A15: (4 'RQAT NO ACK'),
+0x0A15: (5 'REQUEST ACK'),
+0x0A15: (6 'PLEASE WAIT'),
+0x0A15: (7 'NO DYN REG '),
+0x0A15: (8 ' PRGM RQST '),
+0x0A16: (1-9 ' RPTR '),
+0x0B01: (decode_numeric ** 'MESSAGE XXX'),
+0x0B02: (1-8 DEK LEDs),
+0x0B11: (1 'MESAGE RCVD'),
+0x0B11: (2 ## 'MSG NO ACK '),
+0x0B11: (3 'PLEASE WAIT'),
+0x0B11: (4 'NO MESSAGE '),
+0x0B12: (1-8 DEK message LEDs blink on/off),
+0x0B13: (1 ## ' PAGE '),
+0x0B13: (2 ' ID PAGED '),
+0x0B13: (3 'PAGE NO ACK'),
+0x0B13: (4 ' STORE ID '),
+0x0B13: (5 'PLEASE WAIT'),
+0x0B13: (6 'THIS UNIT '),
+0x0B13: (7 'BAD ID '),
+0x0B14: (1 ## ' CALL '),
+0x0B14: (2 'ID - RCVD '),
+0x0B14: (3 'ID - SPRVSR'),
+0x0B14: (4 ' ID CALLED '),
+0x0B14: (5 'CALL NO ACK'),
+0x0B14: (6 'SCRATCH PAD'),
+0x0B14: (7 ' STORE ID '),
+0x0B14: (8 'PLEASE WAIT'),
+0x0B14: (9 'THIS UNIT '),
+0x0B14: (A ' UNIT BUSY '),
+0x0B14: (B ' NO ANSWER '),
+0x0B14: (C ' BAD ID '),
+0x0B14: (D 'FLEET-WIDE '),
+0x0B14: (E 'GROUP-WIDE '),
+0x0B14: (F ' CANCELLED '),
+0x0B15: (1-9 # UNIT XXX),
+0x0B16: (1 'FLEET WIDE '),
+0x0B16: (2 'GROUP WIDE '),
+0x0B17: (1 call alert LED blinks),
+0x0B17: (2 private call LED blinks),
+0x0C01: (0 ' BASE '),
+0x0C01: (1 ' FLEET '),
+0x0C01: (2 ' GROUP '),
+0x0C01: (3 ' UNIT '),
+0x0C02: (decode_numeric ** unit names with data),
+0x0C03: (0 'HRN/LTS OFF' (keypad)),
+0x0C03: (1 ' HORN ON ' (keypad)),
+0x0C03: (2 'LIGHTS ON ' (keypad)),
+0x0C03: (3 'HRN/LTS ON ' (keypad)),
+0x0C04: (0 ' CALL BASE ' off),
+0x0C04: (1 ' CALL BASE ' on),
+0x0C05: (0 H/L LED off (indicator)),
+0x0C05: (1 H/L LED on (indicator)),
+0x0C06: (0 HRN/LTS off (indicator)),
+0x0C06: (1 HORN ON (indicator)),
+0x0C06: (2 LIGHTS ON (indicator)),
+0x0C06: (3 HRN/LTS ON (indicator)),
+0x0C07: (--- unit to unit page),
+0x0C08: (decode_numeric ** unit names with data),
+0x0C09: (decode_OnOff,"PVT LED"),
+0x0C0A: (--- PVT),
+0x0C0B: (decode_numeric repeater names with data),
+0x0C0C: (decode_OnOff,"rptr led"),
+0x0D01: (0 ' PLAY '),
+0x0D01: (1 ' REPLAY '),
+0x0D01: (2 ' RECORD '),
+0x0D01: (3 ' SEND '),
+0x0D01: (4 ' OFF '),
+0x0D02: (--- ' VOICE MSG '),
+0x0E01: (--- 'SCRATCHPAD '),
+0x0E02: (1-9 ** 'PHONE XXX '),
+0x0E03: (--- 'PHONE CALL '),
+0x0E04: (--- 'STORE PHONE'),
+0x0F01: (--- 'SCRATCH PAD'),
+0x0F02: (1-9 ** UNIT XXX X),
+0x0F03: (--- ' CALL '),
+0x0F04: (1 'STORE CALL '),
+0x10(1: (6) 02 1 ' FAILSOFT '),
+0x1002: (2 'OUT OF RNGE'),
+0x1003: (decode_OnOff,"Emer led"),
+0x1004: (1 ' EMERGENCY ' (blinks)),
+0x1004: (2 'NO EMERGNCY'),
+0x1005: (1 'SITE LOCKED'),
+0x1005: (2 'SITE UNLCKED' ?),
+0x1006: (decode_numeric ** 'SITE XXX '),
+0x1007: (0 'STATUS - '),
+0x1007: (1-8 ** 'STATUS X '),
+0x1008: (1-128 ** 'MESSAGE X '),
+0x1009: (1 'STATUS RCVD'),
+0x1009: (2 'MESSGE RCVD'),
+0x1009: (3 ' NO STATUS '),
+0x1009: (4 'PLEASE WAIT'),
+0x1009: (5 'STS NO ACK '),
+0x1009: (6 'MSG NO ACK '),
+0x100A: (1-8 DEK Status LEDs on/off),
+0x100B: (1-8 DEK Message LEDs on/off),
+0x100C: (1-8 DEK Status LEDs Blink on/off),
+0x100D: (1-8 DEK Message LEDs Blink on/off),
+0x100E: (1 'DYN REG ERR'),
+0x100E: (2 'NO DYN REG '),
+0x100E: (3 'DYN REG ON '),
+0x100E: (4 'DYN REG OFF'),
+0x100E: (5 'RQST FAILED'),
+0x100E: (6 ' RQST SENT '),
+0x100E: (7 ' RPGM RQST '),
+0x100F: (1 ' NOT AUTH '),
+0x1010: (decode_OnOff,"SYSTEM WIDE LED"),
+0x1011: (1-X DATA DISPLAYS),
+0x11(1: (7) 01 1 'PLEASE WAIT'),
+0x1101: (2 'PHONE BUSY '),
+0x1101: (3 'OK TO DIAL '),
+0x1101: (4 'ERROR 10/02'),
+0x1101: (5 'KEYPAD DIAL'),
+0x1101: (6 'PHONE CALL '),
+0x1101: (7 'NO SYSTEM '),
+0x1101: (8 'SCRATCH PAD'),
+0x1101: (9 'STORE PHONE'),
+0x1102: (1-9 ** ' PHONE X '),
+0x1103: (1 'ID ALERTED '),
+0x1103: (2 'NO ID ACK '),
+0x1103: (3 'STORE ID '),
+0x1103: (4 'NO SYSTEM '),
+0x1103: (5 'PLEASE WAIT'),
+0x1103: (6 'THIS UNIT '),
+0x1103: (7 'ILLEGAL ID '),
+0x1103: (8 'ERROR 10/02'),
+0x1103: (9 'ID-________'),
+0x1104: (1-9 ** 'UNIT ID X '),
+0x1105: (1 ' PAGE ' (blinks)),
+0x1105: (2 ' CALL ' (blinks)),
+0x1106: (1 ' BAD ID '),
+0x1106: (2 ' STORE ID '),
+0x1106: (3 ' ID - RCVD '),
+0x1106: (4 'ID - SPRVSR'),
+0x1106: (5 ' ID - SENT '),
+0x1106: (6 ' NO ANSWER '),
+0x1106: (7 ' EXIT '),
+0x1106: (8 ?),
+0x1106: (9 * ' CALL '),
+0x14(2: (0) 00 0,1 Single Tone LED off,on),
+0x1401: (1-16 Single Tone Mode),
+0x1402: (1-16 Single Tone DEK LED),
+}
 """
 
 #def decode_TXAUD(packet):
@@ -959,7 +1007,7 @@ def decode(data):
     if len(data) == 5:
         crc=sb9600_CRC(data)
         if crc != 0:
-            print("Invalid CRC " + format(crc,'#x'))
+            print(" Invalid CRC " + format(crc,'#x'))
         else:
             opcode_data=opcodes.get(data[3] & 0x7f)
             if opcode_data and len(opcode_data):
