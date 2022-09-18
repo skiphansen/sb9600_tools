@@ -71,6 +71,27 @@ skip@Dell-7040:~/SB9600/sb9600_tools$ ./sniff_sb9600.py -p /dev/ttyS0
     ready, _, _ = select.select([self.fd, self.pipe_abort_read_r], [], [], timeout.time_left())
 KeyboardInterrupt
 ```
+## Suntor X9000 swiss army knife
+
+The x9000.py script can be used to read and save the X9000's firmware and code plug over the SB9600 bus.  
+
+Other functions coming soon.
+
+```
+skip@Dell-7040:~/xcat/SB9600/sb9600_tools$ ./x9000.py
+usage: x9000.py [-h] [-r] [-w] [--readFirmware] [-f FILE] [-s] [--EEPROM] [-p PORT] [-v]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -r, --read            Read code plug from radio
+  -w, --write           Write code plug to radio
+  --readFirmware        Save EPROM (firmware) into file
+  -f FILE, --File FILE  file for read and write commands
+  -s, --sniff           sniff SB9600 bus, listen Save code plug into file
+  --EEPROM              Display size of EEPROM
+  -p PORT, --Port PORT  Serial port
+  -v, --Verbose         be chatty
+````
 
 ## SB9600 decoder
 
