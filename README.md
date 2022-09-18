@@ -71,7 +71,7 @@ skip@Dell-7040:~/SB9600/sb9600_tools$ ./sniff_sb9600.py -p /dev/ttyS0
     ready, _, _ = select.select([self.fd, self.pipe_abort_read_r], [], [], timeout.time_left())
 KeyboardInterrupt
 ```
-## Suntor X9000 swiss army knife
+## Syntor X9000 swiss army knife
 
 The x9000.py script can be used to read and save the X9000's firmware and code plug over the SB9600 bus.  
 
