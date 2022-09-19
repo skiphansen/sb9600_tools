@@ -73,7 +73,7 @@ KeyboardInterrupt
 ```
 ## Syntor X9000 swiss army knife
 
-The x9000.py script can be used to read and save the X9000's firmware and code plug over the SB9600 bus.  
+The x9000.py script can be used to read the X9000's firmware or code plug over the SB9600 bus.  
 
 Other functions coming soon.
 
