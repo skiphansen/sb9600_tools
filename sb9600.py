@@ -76,7 +76,7 @@ class Serial:
         'PANEL': 0x05
     }
 
-    def __init__(self, port="/dev/ttyUSB0", busy_is_RTS=False):
+    def __init__(self, port="/dev/ttyUSB0", busy_is_RTS=False,verbose=True):
 
         # Open serial port
         self.ser = serial.Serial(port,
@@ -90,6 +90,7 @@ class Serial:
         if busy_is_RTS:
             self.busy = self.ser.setRTS
         self.isBusy = self.ser.getCTS
+        self.verbose = verbose
 
         # De-assert BUSY line
         self.busy(0)
@@ -117,7 +118,8 @@ class Serial:
         msg = bytes((address, param1, param2, function))
         msg = msg + bytes([sb9600_CRC(msg)])
 
-        print(" SENT>: {}".format(hexlify(msg, ' ')))
+        if self.verbose:
+            print(" SENT>: {}".format(hexlify(msg, ' ')))
 
         # Wait until not busy
         while self.isBusy():
