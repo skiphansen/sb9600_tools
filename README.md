@@ -92,6 +92,7 @@ optional arguments:
   -p PORT, --Port PORT  Serial port
   -v, --Verbose         be chatty
 ````
+**NB:** The --write option is not implemented yet.
 
 ## SB9600 decoder
 
