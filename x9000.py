@@ -88,12 +88,28 @@ def getresponse(bus,verbose=False):
         print(f'received {resp_len} bytes')
     return packet
 
-def ReadData(bus,File,read_type):
-    # Send MEMACS with exit normal bus activity, bit 0x02 must be set to avoid
-    # a reset when we 
-    bus.sb9600_send(0,0x03,1,0x08)
-    getresponse(bus)
+def Memacs(bus,enter,reset):
+    if enter:
+        # Send MEMACS with exit normal bus activity
+        param = 1
+        if not reset:
+        # Set bit 0x02 to avoid a reset when we resume busy activity
+            param2 = 3
+        bus.sb9600_send(0,param2,1,0x08)
+        getresponse(bus)
+    else:
+        param = 0
+        if not reset:
+        # Set bit 0x02 to avoid a reset when we resume busy activity
+            param2 = 0x80
+        bus.sb9600_send(0,param2,1,0x08)
 
+def ReadData(bus,args,read_type):
+    if not args.InFile:
+        print('Error: input filename required')
+        return
+    File = args.InFile
+    Memacs(bus,True,False)
     read_len = 0;
     if read_type == 1:
     # read EPROM (firmware)
@@ -139,8 +155,8 @@ def ReadData(bus,File,read_type):
                     print(err)
                     exit(code=err.errno)
 
-    # Send MEMACS with enter normal bus activity, 
-    # all we did was read so no reset is needed
+    # Resume normal bus activity without reset
+    Memacs(bus,False,False)
     bus.sb9600_send(0,0x80,1,0x08)
 
 def write_block(bus,start,data_block,status=False):
@@ -161,47 +177,146 @@ def write_block(bus,start,data_block,status=False):
     # Send MEMADD command
         byte2write = data_block[bytes_written]
         bus.sb9600_send(msb,lsb,byte2write,0x07)
-        #read response
-        tries = 0
-        while tries < 10:
-            getresponse(bus,True)
-            tries += 1
-        if tries == 10:
-            print(f'Read back failed at 0x{adr:04x}')
-            bytes_written = 0
-            break
-
-        if byte != byte2write:
-            print(f'Verify error at 0x{adr:04x}, wrote 0x{byte2write:02x}  read 0x{byte:02x}')
-            bytes_written = 0
-            break
         adr += 1
         bytes_written += 1
+
+    # Verify write
+    tries = 0
+    while tries < 3:
+        verify_block = read_block(bus,start,write_len)
+        tries += 1
+        if data_block == verify_block:
+            print(f'Read back passed')
+            break
+    if tries == 3:
+        print(f'Read back failed')
+        bytes_written = 0
+
     if status:
         print('\r100%')
     return bytes_written
+
+def Test(bus):
+
+    block = read_block(bus,0x8002,2)
+    checksum = (block[0] << 8) + block[1]
+    print(f'checksum 0x{checksum:04X}')
+    block = read_block(bus,0x87fa,2)
+    print(f'last 2 of SN {block}')
+    adjustment = (block[0] << 8) + block[1]
+    print(f'adjustment 0x{adjustment:04x}')
+    checksum -= adjustment
+    print(f'checksum 0x{checksum:04X}')
+    block=bytearray('!!','ascii')
+    #block[0] = 0x36
+    #block[1] = 0x39
+    print(f'writing {block}')
+    if write_block(bus,0x87fa,block) != 2:
+        print('write_block failed')
+        return 0
+
+    adjustment = (block[0] << 8) + block[1]
+    print(f'adjustment 0x{adjustment:04x}')
+    checksum += adjustment
+    block[0] = checksum >> 8
+    block[1] = checksum & 0xff
+    print(f'checksum 0x{checksum:04X}, {block}')
+
+    if write_block(bus,0x8002,block) != 2:
+        print('write_block for checksum failed')
+
+
+def ConvertBin2RDT(args):
+    outFile = args.InFile.replace('.bin','.RDT')
+    print(f'outFile {outFile}')
+    try:
+        fpIn = open(args.InFile,mode='rb')
+        fpOut = open(outFile,mode='wb')
+        block=bytearray(b'\x01')
+        fpOut.write(block)
+        block = fpIn.read()
+        print(f'len(block) {len(block)}')
+        if len(block) != 2048 and len(block) != 8192:
+            print('Error: invalid file invalid, size must be 2048 or 8192 bytes')
+            return
+        fpOut.write(block)
+        if len(block) == 2048:
+        # pad out to 8K
+            block=bytearray(b'\0' * 6 * 1024)
+            fpOut.write(block)
+
+        block=bytearray(b'\005\000\004TEST')
+        fpOut.write(block)
+        block=bytearray(b'\000' * 708)
+        fpOut.write(block)
+        fpIn.close()
+        fpOut.close()
+
+    except OSError as err:
+        print(err)
+        exit(code=err.errno)
+
+def ConvertRTD2Bin(args):
+    outFile = args.InFile.replace('.RDT','.bin')
+    print(f'outFile {outFile}')
+    try:
+        fpIn = open(args.InFile,mode='rb')
+        fpOut = open(outFile,mode='wb')
+        block = fpIn.read(1)
+        block = fpIn.read()
+        EEPROM_len = (block[0] << 8) + block[1] + 1
+        if EEPROM_len != 2048 and EEPROM_len != 8192:
+            print(f'Error: EEPROM length 0x{block[0]:x}{block[1]:02x}')
+            return
+        fpOut.write(block[0:EEPROM_len])
+        fpIn.close()
+        fpOut.close()
+
+    except OSError as err:
+        print(err)
+        exit(code=err.errno)
+
+def Convert(args):
+    if not args.InFile:
+        print('Error: input filename required')
+        return
+
+    if args.InFile.endswith('.bin'):
+        ConvertBin2RDT(args)
+    elif args.InFile.endswith('.RDT'):
+        ConvertRTD2Bin(args)
+    else:
+        print('Error: input filename extension must be ".bin" or ".RDT"')
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-r","--read",help="Read code plug from radio",action="store_true")
 parser.add_argument("-w","--write",help="Write code plug to radio",action="store_true")
 parser.add_argument("--readFirmware",help="Save EPROM (firmware) into file",action="store_true")
-parser.add_argument("-f", "--File", help="file for read and write commands")
+parser.add_argument("--convert",help="Convert to/from RSS .RDT format",action="store_true")
+parser.add_argument("-o", "--OutFile", help="output filename")
+parser.add_argument("-i", "--InFile", help="input filename")
 parser.add_argument("-s","--sniff",help="sniff SB9600 bus, listen Save code plug into file",action="store_true")
 parser.add_argument("--EEPROM",help="Display size of EEPROM",action="store_true")
 parser.add_argument("-p", "--Port", help="Serial port",default="/dev/ttyUSB0")
 parser.add_argument("-v","--Verbose",help="be chatty",action="store_true")
+parser.add_argument("-t",action="store_true")
+parser.add_argument("--band",help='radio band from .bin file ("low", "vhf", "uhf", or "800")',action="store_true")
 args = parser.parse_args()
 
 bus = sb9600.Serial(port=args.Port,verbose=args.Verbose)
 
-if (args.read or args.readFirmware) and not args.File:
-    print('Error: filename required')
-elif args.read:
-    ReadData(bus,args.File,2)
+if args.read:
+    ReadData(bus,args,2)
 elif args.readFirmware:
-    ReadData(bus,args.File,1)
+    ReadData(bus,args,1)
 elif args.EEPROM:
-    ReadData(bus,args.File,3)
+    ReadData(bus,args,3)
+elif args.convert:
+    Convert(args)
+elif args.t:
+    Memacs(bus,True,False)
+    Test(bus)
+    Memacs(bus,False,False)
 elif args.sniff:
     pass
 else:
