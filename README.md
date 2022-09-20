@@ -79,18 +79,24 @@ Other functions coming soon.
 
 ```
 skip@Dell-7040:~/xcat/SB9600/sb9600_tools$ ./x9000.py
-usage: x9000.py [-h] [-r] [-w] [--readFirmware] [-f FILE] [-s] [--EEPROM] [-p PORT] [-v]
+usage: x9000.py [-h] [-r] [-w] [--readFirmware] [--convert] [-o OUTFILE]
+                [-i INFILE] [-s] [--EEPROM] [-p PORT] [-v]
 
 optional arguments:
   -h, --help            show this help message and exit
   -r, --read            Read code plug from radio
   -w, --write           Write code plug to radio
   --readFirmware        Save EPROM (firmware) into file
-  -f FILE, --File FILE  file for read and write commands
+  --convert             Convert to/from RSS .RDT format
+  -o OUTFILE, --OutFile OUTFILE
+                        output filename
+  -i INFILE, --InFile INFILE
+                        input filename
   -s, --sniff           sniff SB9600 bus, listen Save code plug into file
   --EEPROM              Display size of EEPROM
   -p PORT, --Port PORT  Serial port
   -v, --Verbose         be chatty
+
 ````
 **NB:** The --write option is not implemented yet.
 
